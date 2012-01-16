@@ -6,3 +6,4 @@ Made for educational purposes. Inspired by [tiny httpd](http://tinyhttpd.sourcef
 
 * Static file serving
 * MIME types based on file extension
+* Read user provided command line params for host and port
