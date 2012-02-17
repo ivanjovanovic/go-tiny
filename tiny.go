@@ -55,7 +55,7 @@ func serveClient(conn *net.TCPConn) {
   request, err := parseRequest(reader)
   
   if err != nil {
-    conn.Write([]byte("Invalid request"))
+    conn.Write([]byte("HTTP/1.1 400 Bad Request"))
     return
   }
 
