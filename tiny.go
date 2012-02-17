@@ -10,7 +10,6 @@ import (
   "net/textproto"
   "bufio"
   "strings"
-  /* "fmt"*/
 )
 
 type Request struct {
@@ -48,11 +47,8 @@ func main() {
 func serveClient(conn *net.TCPConn) {
   defer conn.Close() // we will close the connection once we exit this function
 
-  // making buffered IO reader and simple echo server
-  var reader = textproto.NewReader(bufio.NewReader(conn))
-
   // making new request object
-  request, err := parseRequest(reader)
+  request, err := parseRequest(bufio.NewReader(conn))
   
   if err != nil {
     conn.Write([]byte("HTTP/1.1 400 Bad Request"))
@@ -66,12 +62,20 @@ func serveClient(conn *net.TCPConn) {
   }
 
   dir, _ := os.Getwd()
+  filePath := strings.Join([]string{dir, request.Path}, "")
+
+  /* Checking if file exists
+   * We do type assertion (announcing that error is of type *PathError)
+   * in order to get the proper type
+   * @see http://golang.org/doc/go_spec.html#Type_assertions
+   */
+  if _, err := os.Stat(filePath); err != nil && err.(*os.PathError).Error == os.ENOENT {
+    conn.Write([]byte("HTTP/1.1 404 Not Found"))
+    return
+  }
 
   // now when I have request for a certain path I can serve
-  var pathStrings = make([]string, 2)
-  pathStrings[0] = dir
-  pathStrings[1] = request.Path
-  file, err := os.Open(strings.Join(pathStrings, ""))
+  file, err := os.Open(filePath)
 
   if err != nil {
     conn.Write([]byte("HTTP/1.1 500 Internal Server Error"))
@@ -92,7 +96,9 @@ func serveClient(conn *net.TCPConn) {
 /*
  * Parse the client request headers and build request object.
 */
-func parseRequest(r *textproto.Reader) (*Request, os.Error) {
+func parseRequest(reader *bufio.Reader) (*Request, os.Error) {
+
+  var r = textproto.NewReader(reader)
 
   // create new request object
   request := new(Request)
