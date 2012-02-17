@@ -1,3 +1,7 @@
+/*
+ * Simple, dummy HTTP server that just can serve a given path if 
+ * present in the current directory. 
+ */
 package main
 
 import (
@@ -55,10 +59,34 @@ func serveClient(conn *net.TCPConn) {
     return
   }
 
-  // writing back to client
-  conn.Write([]byte(request.Method))
-  conn.Write([]byte(request.Path))
-  conn.Write([]byte(request.HTTPVersion))
+  // return error if path contains ../
+  if strings.Contains(request.Path, "../") {
+    conn.Write([]byte("HTTP/1.1 403 Forbidden"))
+    return
+  }
+
+  dir, _ := os.Getwd()
+
+  // now when I have request for a certain path I can serve
+  var pathStrings = make([]string, 2)
+  pathStrings[0] = dir
+  pathStrings[1] = request.Path
+  file, err := os.Open(strings.Join(pathStrings, ""))
+
+  if err != nil {
+    conn.Write([]byte("HTTP/1.1 500 Internal Server Error"))
+    return
+  }
+
+  // writing file to connection by transfering chunk by chunk
+  var buffer = make([]byte, 1024)
+  for {
+    n, err := file.Read(buffer)
+    conn.Write(buffer[0:n])
+    if err == os.EOF {
+      break
+    }
+  }
 }
 
 /*
@@ -77,7 +105,12 @@ func parseRequest(r *textproto.Reader) (*Request, os.Error) {
   }
 
   request.Method = methodLineElements[0]
-  request.Path = methodLineElements[1]
+
+  if methodLineElements[1] == "/" {
+    request.Path = "index.html"
+  } else {
+    request.Path = methodLineElements[1]
+  }
   request.HTTPVersion = methodLineElements[2]
   return request, nil
 }
